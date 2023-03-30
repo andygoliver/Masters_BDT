@@ -1,0 +1,10 @@
+name: masters
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - matplotlib
+  - jupyter
+  - scipy
+  - scikit-learn
+  - pandas

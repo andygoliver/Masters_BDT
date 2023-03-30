@@ -1,0 +1,8 @@
+models/
+Models/
+Plots/
+preparation_logs/
+training_logs/
+__pycache__/
+pt_cuts/pt_cut_arrays/
+pt_cuts/pt_cut_plots/
