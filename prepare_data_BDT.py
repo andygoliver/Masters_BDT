@@ -226,8 +226,8 @@ def select_feature_labels(choice: str) -> list[str]:
         "phi_rel",
         "phi_rot",
         "Delta_R",
-        "cos(theta)",
-        "cos(theta_rel)"
+        "cos_theta",
+        "cos_theta_rel"
     ]
     andre_feature_labels = ["pT", "eta_rel", "phi_rel"]
 
