@@ -1,9 +1,9 @@
 #!/bin/sh
 #SBATCH --job-name=BDT_train
 #SBATCH --account=t3
-#SBATCH --partition=standard
-#SBATCH --mem=20000
-#SBATCH --time=0-12:00
+#SBATCH --partition=long
+#SBATCH --mem=60000
+#SBATCH --time=0-18:00
 #SBATCH --output=./training_logs/BDT_data_cpu_%j.out
 
 # Folder where the data is located for the training and testing of the BDT.
