@@ -17,12 +17,14 @@ parser.add_argument(
     required=True,
     help="Path to the training data file to process.",
 )
+'''
 parser.add_argument(
     "--data_path_test",
     type=str,
     required=True,
     help="Path to the test data file to process.",
 )
+'''
 parser.add_argument(
     "--BDT_hyperparameters",
     type=dict,
@@ -48,26 +50,6 @@ parser.add_argument(
     default="testy_test",
     help="Name of output model.",
 )
-'''
-parser.add_argument(
-    "--plot_ROC",
-    type=bool,
-    default=False,
-    help="Toggles ROC plotting on or off (default off).",
-)
-parser.add_argument(
-    "--plot_output_dir",
-    type=str,
-    default="Plots/",
-    help="Directory in which to save the ROC plot.",
-)
-parser.add_argument(
-    "--plot_name",
-    type=str,
-    default="test.png",
-    help="Name of output ROC plot.",
-)
-'''
 
 def load_tfds(data_path: str, name:str = None, label_: str = 'class'):
    start_time = time.time()
@@ -84,31 +66,9 @@ args = parser.parse_args()
 
 print('\n=============================================\n')
 
-'''
-# load training data
-
-train_starting_time = time.time()
-train_df = pd.read_csv(args.data_path_train, nrows = None)
-train_load_time = time.time()-train_starting_time
-print(f'Loaded training sample of {len(train_df)} jets in {train_load_time:.3f}s')
-
-# load testing data
-
-test_starting_time = time.time()
-test_df = pd.read_csv(args.data_path_test, nrows = None)
-test_load_time = time.time()-test_starting_time
-print(f'Loaded testing sample of {len(test_df)} jets in {test_load_time:.3f}s')
-
-print('\n=============================================\n')
-
-# convert training and testing dataframes to tensorflow datasets
-train_ds = tfdf.keras.pd_dataframe_to_tf_dataset(train_df, label='class')
-test_ds = tfdf.keras.pd_dataframe_to_tf_dataset(test_df, label='class')
-'''
-
 # Load in the data
 train_ds = load_tfds(args.data_path_train, name = 'training')
-test_ds= load_tfds(args.data_path_test, name = 'testing')
+# test_ds= load_tfds(args.data_path_test, name = 'testing')
 
 print('\n=============================================\n')
 
@@ -125,8 +85,10 @@ training_time = time.time() - starting_time
 model.save(args.model_output_dir + args.model_name)
 
 # evaluate the model 
+'''
 model.compile(metrics=["accuracy"])
 evaluation = model.evaluate(train_ds, return_dict=True)
+'''
 inspector = model.make_inspector()
 
 print('\n=============================================\n')
@@ -135,7 +97,7 @@ print('Inputs')
 print('------')
 
 print(f'Training data: {args.data_path_train}')
-print(f'Testing data: {args.data_path_test}')
+# print(f'Testing data: {args.data_path_test}')
 
 print('\nOutputs')
 print('-------')
@@ -165,8 +127,10 @@ print("number of trees:", inspector.num_trees())
 print("objective:", inspector.objective())
 #print("Input features:", inspector.features())
 
+'''
 for name, value in evaluation.items():
   print(f"{name}: {value:.4f}")
+'''
 
 print(f"training time: {training_time:.2f}s")
 

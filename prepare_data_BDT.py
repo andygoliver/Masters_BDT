@@ -328,7 +328,7 @@ def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_
             index = feature_labels.index(sorted_feature)
             
             order = ascending - (not ascending)
-            sorted_data = np.array([x_data[i][(order*x_data[i][:, index]).argsort()] for i in range(len(x_data))])
+            sorted_data = [x_data[i][(order*x_data[i][:, index]).argsort()] for i in range(len(x_data))]
             
             print(
                 tcols.OKGREEN 

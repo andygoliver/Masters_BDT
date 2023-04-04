@@ -13,14 +13,18 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument(
     "model_path",
     type=str,
-    required=True,
     help="Path to the model to process.",
 )
 parser.add_argument(
     "fig_name",
     type=str,
-    required=True,
     help="Name of saved figure.",
+)
+parser.add_argument(
+    "--fig_directory",
+    type=str,
+    default = "Plots/Feat_imp",
+    help="Name of directory in which figure will be saved.",
 )
 
 def get_2d_importances(model_path: str, variable_importance:str, feature_choice: str = 'jedinet') -> np.ndarray:
@@ -73,4 +77,4 @@ for importance in importances:
     print(importance)
     plot_importances(args.model_path, 
                      importance, show_fig = False,
-                     save_fig = True, fig_name = args.fig_name)
+                     save_fig = True, fig_name = args.fig_name, fig_directory = args.fig_directory)
