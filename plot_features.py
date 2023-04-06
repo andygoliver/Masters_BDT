@@ -59,23 +59,27 @@ print("-----------------")
 # loop over the features, plotting two histograms in each case
 # first histogram is the overall distribution, and the second is split into each class
 for feature_index in range(len(feature_list)):
-    plt.hist(x_data[:,:,feature_index].flatten(), histtype='step', density = True, bins=40)
+    is_not_padded = np.any(np.array(x_data), axis = 2)
+
+    # plt.hist(x_data[:,:,feature_index].flatten(), histtype='step', density = True, bins=40)
+    plt.hist(x_data[is_not_padded][:,feature_index], histtype = 'step', density = True, bins =40)
     plt.xlabel(f"{feature_list[feature_index]}")
     plt.ylabel("Prob density")
     plt.gca().set_yscale("log")
-    plt.savefig(os.path.join(args.plots_dir, f"{feature_list[feature_index]}.pdf"))
+    plt.savefig(os.path.join(args.plots_dir, f"{feature_list[feature_index]}_unpadded.pdf"))
     plt.close()
 
     for class_index in range(len(classes)):
         boolean_index = [np.argmax(y)==class_index for y in y_data]
-        classed_feature = x_data[:,:,feature_index][boolean_index].flatten()
+        # classed_feature = x_data[:,:,feature_index][boolean_index].flatten()
+        classed_feature = x_data[boolean_index][is_not_padded[boolean_index]][:,feature_index]
         plt.hist(classed_feature, histtype='step', density = True, bins=40, label = classes[class_index])
 
     plt.xlabel(f"{feature_list[feature_index]}")
     plt.ylabel("Prob density")
     plt.gca().set_yscale("log")
     plt.legend()
-    plt.savefig(os.path.join(args.plots_dir, f"{feature_list[feature_index]}_by_class.pdf"))
+    plt.savefig(os.path.join(args.plots_dir, f"{feature_list[feature_index]}_by_class_unpadded.pdf"))
     plt.close()  
 
     print(f"* Created and saved plots of {feature_list[feature_index]}")
