@@ -9,6 +9,7 @@ import tensorflow_decision_forests as tfdf
 
 from prepare_data_BDT import select_feature_labels
 
+
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
     "model_path",
@@ -57,9 +58,10 @@ def get_2d_importances(model_path: str, variable_importance:str, feature_choice:
 def plot_importances(model_path: str, variable_importance:str, feature_choice: str = 'jedinet', cmap: str = "YlGnBu",
                      save_fig: bool = False, fig_name:str = '', fig_directory:str = 'Plots', show_fig:bool = False):
     feature_importances = get_2d_importances(model_path, variable_importance, feature_choice = feature_choice)
-
-    # plt.subplots(figsize=(18.75,5))
-    ax = sns.heatmap(feature_importances, linewidth=0.5, cmap=cmap, yticklabels = select_feature_labels(feature_choice), square = True)
+    
+    # use fisize (18.5,5) for c50 and (55,5) for c150, width ~3/8*nb_constituents 
+    plt.subplots(figsize=(18.5,5))
+    ax = sns.heatmap(feature_importances, linewidth=0.5, cmap=cmap, yticklabels = select_feature_labels(feature_choice), square = True, vmin = 0.083)
     ax.set(xlabel='Constituent', ylabel = 'Feature', title=f'{variable_importance} feature importance')
     plt.tight_layout()
     if save_fig:
@@ -71,7 +73,8 @@ def plot_importances(model_path: str, variable_importance:str, feature_choice: s
     plt.close()
 
 args = parser.parse_args()
-importances  = ['INV_MEAN_MIN_DEPTH', 'NUM_AS_ROOT', 'NUM_NODES', 'SUM_SCORE']
+importances = ['INV_MEAN_MIN_DEPTH']
+# importances  = ['INV_MEAN_MIN_DEPTH', 'NUM_AS_ROOT', 'NUM_NODES', 'SUM_SCORE']
 
 for importance in importances:
     print(importance)
