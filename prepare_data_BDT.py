@@ -63,6 +63,12 @@ parser.add_argument(
     help="The type of feature selection to be employed.",
 )
 parser.add_argument(
+    "--padded_value",
+    type=float,
+    default=-9999.0,
+    help="The value used to pad the arrays.",
+)
+parser.add_argument(
     "--flag",
     type=str,
     default="",
@@ -102,7 +108,7 @@ def main(args):
 
     pt_idx = get_pt_index(args.type)
     print(f'Cutting transverse momentum for pT > {args.min_pt}...')
-    x_data, y_data = cut_transverse_momentum(x_data, y_data, args.min_pt, pt_idx)
+    x_data, y_data, nb_constituents_precut = cut_transverse_momentum(x_data, y_data, args.min_pt, pt_idx)
 
     print('=================')
 
@@ -111,13 +117,14 @@ def main(args):
     print('=================')
 
     print('Restricting number of constituents...')
-    x_data = restrict_nb_constituents(x_data, args.max_constituents)
+    x_data = restrict_nb_constituents(x_data, args.max_constituents, padded_value = args.padded_value)
 
     # print('-----------------')
     print('=================')
 
     print_data_dimensions(x_data)
 
+    #Create the dataframe by flattening x_data and using appropriate headings
     feature_labels = select_feature_labels(args.type)
     x_heading = generate_X_heading(feature_labels, args.max_constituents)
 
@@ -125,10 +132,11 @@ def main(args):
     y_data = [classes[np.argmax(i)] for i in y_data]
 
     df = pd.DataFrame(data = x_data, columns = x_heading)
-    df['class'] = y_data
+    df["nb_constituents"] = nb_constituents_precut
+    df["class"] = y_data
 
     if args.positive_class is not None:
-        df["class"] = df["class"] == bytes(args.positive_class, 'utf-8')
+        df["class"] = 1*(df["class"] == bytes(args.positive_class, 'utf-8'))
 
     if args.sort_ascending:
         sort_flag = 'l'
@@ -136,7 +144,7 @@ def main(args):
         sort_flag = 'h'
 
     out_file_name = (
-        f"jet_images_c{args.max_constituents}_pt{args.min_pt}_{args.type}_sort_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{args.flag}.csv"
+        f"jet_images_c{args.max_constituents}_pt{args.min_pt}_{args.type}_sort_{sort_flag}{args.sorted_feature}_pad{args.padded_value}_pc{args.positive_class}_{args.flag}.csv"
     )
     output_file = os.path.join(args.output_dir, f"{out_file_name}")
 
@@ -312,11 +320,20 @@ def cut_transverse_momentum(
 
     print(f'Mean constituents per jet after pt cut: {np.mean(structure_memory):.2f}')
 
-    return x_data, y_data
+    return x_data, y_data, structure_memory
 
 def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_type: str) -> np.ndarray:
     """Sorts data according to the given feature. This can be highest to lowest (default)
     or lowest to highest.
+
+    Args:
+        x_data: Array containing the unsorted data (should have no padding)
+        sorted_feature: feature over which data will be sorted
+        ascending: boolean to determine sort order (True is lowest to highest)
+        feature_type: list of features chosen in this analysis
+
+    Returns:
+        The sorted data
     """
     if sorted_feature == "pT" and not ascending:
         sorted_data = x_data
@@ -346,7 +363,7 @@ def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_
 
     return sorted_data
 
-def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int) -> np.ndarray:
+def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int, padded_value: float = 0.0) -> np.ndarray:
     """Force each jet to have an equal number of constituents. If the jet has more,
     then the ones after the given number are discarded. If the jet has less than the
     number of max constituents, then it is padded with 0 values.
@@ -354,6 +371,7 @@ def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int) -> np.nd
     Args:
         x_data: Data array to be processed.
         max_constituents: Exact number of constituents that a jet should have.
+        padded_value: Value used to pad jets
 
     Returns:
         The data array with a fixed number of constituents per jet.
@@ -368,7 +386,7 @@ def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int) -> np.nd
         else:
             nb_constituents = np.append(nb_constituents, x_data[jet].shape[0])
             padding_length = max_constituents - x_data[jet].shape[0]
-            x_data[jet] = np.pad(x_data[jet], ((0, padding_length), (0, 0)))
+            x_data[jet] = np.pad(x_data[jet], ((0, padding_length), (0, 0)), constant_values = padded_value)
 
     print(f'Mean constituents per jet in final dataset: {np.mean(nb_constituents):.2f}')
 

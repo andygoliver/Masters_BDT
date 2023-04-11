@@ -26,6 +26,12 @@ parser.add_argument(
 )
 '''
 parser.add_argument(
+    "--nb_jets",
+    type=int,
+    default=None,
+    help="Number of events to load in.",
+)
+parser.add_argument(
     "--BDT_hyperparameters",
     type=dict,
     default={'num_trees':60,
@@ -34,7 +40,8 @@ parser.add_argument(
              'use_hessian_gain':True,
              'growing_strategy':'BEST_FIRST_GLOBAL',
              'max_depth':-1,
-             'max_num_nodes':32
+             'max_num_nodes':32,
+             'num_threads': 64
             },
     help="Hyperparameters of the BDT. Add as a dictionary.",
 )
@@ -51,9 +58,9 @@ parser.add_argument(
     help="Name of output model.",
 )
 
-def load_tfds(data_path: str, name:str = None, label_: str = 'class'):
+def load_tfds(data_path: str, nrows_:int = None, name:str = None, label_: str = 'class'):
    start_time = time.time()
-   df = pd.read_csv(data_path, nrows = None)
+   df = pd.read_csv(data_path, nrows = nrows_)
    ds = tfdf.keras.pd_dataframe_to_tf_dataset(df, label=label_)
    load_time = time.time()-start_time
 
@@ -67,7 +74,7 @@ args = parser.parse_args()
 print('\n=============================================\n')
 
 # Load in the data
-train_ds = load_tfds(args.data_path_train, name = 'training')
+train_ds = load_tfds(args.data_path_train, nrows_ = args.nb_jets, name = 'training')
 # test_ds= load_tfds(args.data_path_test, name = 'testing')
 
 print('\n=============================================\n')
