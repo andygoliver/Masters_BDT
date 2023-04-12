@@ -28,7 +28,7 @@ parser.add_argument(
 parser.add_argument(
     "--min_pt",
     type=float,
-    default=0,
+    default=None,
     help="Minimum transverse momentum that the data should have.",
 )
 parser.add_argument(
@@ -106,12 +106,19 @@ def main(args):
     print(tcols.OKGREEN + '\nAll files read' + tcols.ENDC)
     print('=================')
 
-    pt_idx = get_pt_index(args.type)
-    print(f'Cutting transverse momentum for pT > {args.min_pt}...')
-    x_data, y_data, nb_constituents_precut = cut_transverse_momentum(x_data, y_data, args.min_pt, pt_idx)
-
+    print(f'Removing zero-padding from input dataset')
+    x_data, nb_constituents_precut = remove_zero_padding(x_data)
     print('=================')
 
+    '''
+    if args.min_pt is not None:
+        pt_idx = get_pt_index(args.type)
+        print(f'Cutting transverse momentum for pT > {args.min_pt}...')
+        x_data, y_data, nb_constituents_precut = cut_transverse_momentum(x_data, y_data, args.min_pt, pt_idx)
+
+        print('=================')
+    '''
+        
     x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending, args.type)
     
     print('=================')
@@ -293,6 +300,25 @@ def get_file_paths(data_file_dir: str) -> list:
 
     return file_paths
 
+def remove_zero_padding(
+    x_data: np.ndarray,
+) -> tuple([list, np.ndarray]):
+    """Reject zero-padded constituents.
+
+    Args:
+        x_data: Array containing the unprocessed data.
+
+    Returns:
+        The processed data array.
+    """
+    boolean_mask = np.any(x_data, axis = 2)
+    structure_memory = boolean_mask.sum(axis=1)
+    x_data = np.split(x_data[boolean_mask, :], np.cumsum(structure_memory)[:-1])
+    x_data = [jet_const for jet_const in x_data if jet_const.size > 0]
+
+    print(f'Mean constituents per jet after padding removed: {np.mean(structure_memory):.2f}')
+
+    return x_data, structure_memory
 
 def cut_transverse_momentum(
     x_data: np.ndarray,
