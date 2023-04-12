@@ -118,14 +118,18 @@ def main(args):
 
         print('=================')
     '''
-        
+    print(f'Creating aggregated features...')
+    means = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
+    sums = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
+    print('=================')    
     x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending, args.type)
-    
     print('=================')
 
     print('Restricting number of constituents...')
     x_data = restrict_nb_constituents(x_data, args.max_constituents, padded_value = args.padded_value)
-
+    # print('-----------------')
+    # print(x_data[:3]) 
+    # print(type(x_data))
     # print('-----------------')
     print('=================')
 
@@ -140,6 +144,8 @@ def main(args):
 
     df = pd.DataFrame(data = x_data, columns = x_heading)
     df["nb_constituents"] = nb_constituents_precut
+    df["means_test"] = means
+    df["sums_test"] = sums
     df["class"] = y_data
 
     if args.positive_class is not None:
@@ -150,9 +156,13 @@ def main(args):
     else:
         sort_flag = 'h'
 
+    '''
     out_file_name = (
         f"jet_images_c{args.max_constituents}_pt{args.min_pt}_{args.type}_sort_{sort_flag}{args.sorted_feature}_pad{args.padded_value}_pc{args.positive_class}_{args.flag}.csv"
     )
+    '''
+
+    out_file_name = f"jet_images_c{args.max_constituents}_sort_{sort_flag}{args.sorted_feature}_pad{args.padded_value}_pc{args.positive_class}_{args.flag}.csv"
     output_file = os.path.join(args.output_dir, f"{out_file_name}")
 
     df.to_csv(output_file, index = False)
@@ -348,7 +358,7 @@ def cut_transverse_momentum(
 
     return x_data, y_data, structure_memory
 
-def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_type: str) -> np.ndarray:
+def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_type: str, verbosity:int = 1) -> np.ndarray:
     """Sorts data according to the given feature. This can be highest to lowest (default)
     or lowest to highest.
 
@@ -363,9 +373,11 @@ def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_
     """
     if sorted_feature == "pT" and not ascending:
         sorted_data = x_data
-        print('Default sorting (by pT) applied.')
+        if verbosity > 0:
+            print('Default sorting (by pT) applied.')
     else:
-        print(f'Sorting data by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}...')
+        if verbosity > 0:
+            print(f'Sorting data by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}...')
         try:
             feature_labels  = select_feature_labels(feature_type)
             index = feature_labels.index(sorted_feature)
@@ -373,19 +385,22 @@ def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_
             order = ascending - (not ascending)
             sorted_data = [x_data[i][(order*x_data[i][:, index]).argsort()] for i in range(len(x_data))]
             
-            print(
-                tcols.OKGREEN 
-                + f'Successfully sorted by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}.'
-                + tcols.ENDC)
+            if verbosity > 0:
+                print(
+                    tcols.OKGREEN 
+                    + f'Successfully sorted by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}.'
+                    + tcols.ENDC)
 
         except:
             sorted_data = x_data
-            print(
-                tcols.FAIL 
-                + f'Unable to sort by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}.'
-                + tcols.ENC)
-            print(f'Please check that {sorted_feature} is in the {feature_type} list of features.')
-            print('Data will be sorted by pT as default.')
+
+            if verbosity > 0:
+                print(
+                    tcols.FAIL 
+                    + f'Unable to sort by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}.'
+                    + tcols.ENC)
+                print(f'Please check that {sorted_feature} is in the {feature_type} list of features.')
+                print('Data will be sorted by pT as default.')
 
     return sorted_data
 
@@ -418,6 +433,30 @@ def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int, padded_v
 
     return np.array(x_data)
 
+def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type, sorted_feature='pT', sort_ascending=False):
+    """Returns a list of aggregated features that can be added to the final dataframe."""
+    sorted_data = sort_data(x_data, sorted_feature, sort_ascending, feature_type, verbosity=0)
+    
+    feature_labels  = select_feature_labels(feature_type)
+    try:
+        feature_index = feature_labels.index(feature)
+    except:
+        print(f"'{feature}' not found in list of features!")
+        return
+    
+    switcher = {
+        "mean": lambda: [np.mean(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+        "median": lambda: [np.median(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+        "min": lambda: [np.amin(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+        "max": lambda: [np.amax(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+        "sum": lambda: [np.sum(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+    }
+
+    aggregated_feature = switcher.get(operation, lambda: None)()
+    if aggregated_feature is None:
+        raise TypeError(f"'{operation}' not found from list of operations!")
+    
+    return aggregated_feature
 
 def print_data_dimensions(data: np.ndarray):
     """Prints the dimensions of the data explicitely."""
