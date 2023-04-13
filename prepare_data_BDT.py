@@ -65,8 +65,14 @@ parser.add_argument(
 parser.add_argument(
     "--padded_value",
     type=float,
-    default=-9999.0,
+    default=-9999,
     help="The value used to pad the arrays.",
+)
+parser.add_argument(
+    "--include_aggregated_features",
+    type=bool,
+    default=False,
+    help="Choose whether to add aggregated features to the dataset.",
 )
 parser.add_argument(
     "--flag",
@@ -118,10 +124,14 @@ def main(args):
 
         print('=================')
     '''
-    print(f'Creating aggregated features...')
-    means = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
-    sums = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
-    print('=================')    
+    if args.include_aggregated_features:
+        print(f'Creating aggregated features...')
+        means = aggregate_all_features(x_data, 'mean', args.type)
+        sums = aggregate_all_features(x_data, 'sum', args.type)
+        # means_ = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
+        # sums_ = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
+        print('=================')    
+
     x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending, args.type)
     print('=================')
 
@@ -143,9 +153,21 @@ def main(args):
     y_data = [classes[np.argmax(i)] for i in y_data]
 
     df = pd.DataFrame(data = x_data, columns = x_heading)
-    df["nb_constituents"] = nb_constituents_precut
-    df["means_test"] = means
-    df["sums_test"] = sums
+    
+    if args.include_aggregated_features:
+        for item in means:
+            df[item] = means[item]
+
+        for item in sums:
+            df[item] = sums[item]
+
+        df["nb_constituents"] = nb_constituents_precut
+
+        agg_flag = 'agg'
+
+    else:
+        agg_flag = 'noagg'
+    
     df["class"] = y_data
 
     if args.positive_class is not None:
@@ -162,7 +184,7 @@ def main(args):
     )
     '''
 
-    out_file_name = f"jet_images_c{args.max_constituents}_sort_{sort_flag}{args.sorted_feature}_pad{args.padded_value}_pc{args.positive_class}_{args.flag}.csv"
+    out_file_name = f"jet_images_c{args.max_constituents}_sort_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
     output_file = os.path.join(args.output_dir, f"{out_file_name}")
 
     df.to_csv(output_file, index = False)
@@ -457,6 +479,17 @@ def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type
         raise TypeError(f"'{operation}' not found from list of operations!")
     
     return aggregated_feature
+
+def aggregate_all_features(x_data, operation, feature_type):
+    """Returns dictionary with all features aggregated by specific operation."""
+    agg_feature_dict = {}
+    
+    feature_labels  = select_feature_labels(feature_type)
+
+    for feature in feature_labels:
+        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, None, feature_type)
+
+    return agg_feature_dict
 
 def print_data_dimensions(data: np.ndarray):
     """Prints the dimensions of the data explicitely."""
