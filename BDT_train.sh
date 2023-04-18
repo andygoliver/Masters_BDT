@@ -1,20 +1,20 @@
 #!/bin/sh
-#SBATCH --job-name=BDTnoagg
+#SBATCH --job-name=cut2
 #SBATCH --account=t3
 #SBATCH --partition=standard
-#SBATCH --mem=20000
+#SBATCH --mem=16000
 #SBATCH --time=0-12:00
 #SBATCH --output=./training_logs/BDT_data_cpu_%j.out
 
 # Folder where the data is located for the training and testing of the BDT.
 # Change so it suits your configuration.
-data_path_train="/work/aoliver/Data/binary_class/jet_images_c16_sort_hpT_pct_noagg_train.csv"
+data_path_train="/work/aoliver/Data/binary_class/jet_images_c16_cut2_hpT_pct_agg_train.csv"
 # data_path_test="/work/aoliver/Data/jet_images_c8_pt2.0_andre_test.csv"
 
 # Default parameters
 # nb_jets=None
 model_output_dir=/work/aoliver/BDT/Models/Binary_class/
-model_name=BDT_c16_hpT_pct_noagg
+model_name=BDT_c16_cut2_hpT_pct_agg
 
 # Gather parameters given by user.
 for ARGUMENT in "$@"

@@ -58,8 +58,7 @@ parser.add_argument(
 parser.add_argument(
     "--type",
     type=str,
-    default="jedinet",
-    choices=["andre", "jedinet"],
+    default="all",
     help="The type of feature selection to be employed.",
 )
 parser.add_argument(
@@ -84,75 +83,56 @@ parser.add_argument(
 classes = np.array([b'g', b'q', b'w', b'z', b't'])
 
 def main(args):
-    data_file_paths = get_file_paths(args.data_file_dir)
+    if args.max_constituents == 0 and not args.include_aggregated_features:
+        print('----------------------------------------------------------')
+        print(
+            tcols.FAIL 
+            + f'Process failed: you are trying to create an empty dataset!'
+            + tcols.ENDC)
+        print('----------------------------------------------------------')
+        return
 
-    print('\nReading files...')
-
-    x_data, y_data = select_features(args.type, data_file_paths[0])
-    
-    n_file = 1
-    # print(f"Read file [{n_file}/{len(data_file_paths)}]")
-    
-    sys.stdout.write('\r')
-    sys.stdout.write(f"Read file [{n_file}/{len(data_file_paths)}]")
-    sys.stdout.flush()
-    
-
-    for file_path in data_file_paths[1:]:
-        n_file +=1
-
-        add_x_data, add_y_data = select_features(args.type, file_path)
-        x_data = np.concatenate((x_data, add_x_data), axis=0)
-        y_data = np.concatenate((y_data, add_y_data), axis=0)
-
-        sys.stdout.write('\r')
-        sys.stdout.write(f"Read file [{n_file}/{len(data_file_paths)}]")
-        sys.stdout.flush()
-    
-    print(tcols.OKGREEN + '\nAll files read' + tcols.ENDC)
+    x_data, y_data = load_all_files_in_directory(args.data_file_dir)
     print('=================')
 
-    print(f'Removing zero-padding from input dataset')
     x_data, nb_constituents_precut = remove_zero_padding(x_data)
     print('=================')
 
-    '''
-    if args.min_pt is not None:
-        pt_idx = get_pt_index(args.type)
-        print(f'Cutting transverse momentum for pT > {args.min_pt}...')
-        x_data, y_data, nb_constituents_precut = cut_transverse_momentum(x_data, y_data, args.min_pt, pt_idx)
-
-        print('=================')
-    '''
     if args.include_aggregated_features:
         print(f'Creating aggregated features...')
-        means = aggregate_all_features(x_data, 'mean', args.type)
-        sums = aggregate_all_features(x_data, 'sum', args.type)
+        means = aggregate_all_features(x_data, 'mean', feature_type = args.type)
+        sums = aggregate_all_features(x_data, 'sum', feature_type = args.type)
         # means_ = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
         # sums_ = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
         print('=================')    
 
-    x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending, args.type)
+    x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending)
+    print('=================')
+    
+    print(f'Choosing features according to feature selection: {args.type}')
+    x_data = choose_features(x_data, args.type)
     print('=================')
 
-    print('Restricting number of constituents...')
-    x_data = restrict_nb_constituents(x_data, args.max_constituents, padded_value = args.padded_value)
-    # print('-----------------')
-    # print(x_data[:3]) 
-    # print(type(x_data))
-    # print('-----------------')
-    print('=================')
+    if args.max_constituents != 0:
+        print('Restricting number of constituents...')
+        x_data = restrict_nb_constituents(x_data, args.max_constituents, padded_value = args.padded_value)
+        print('=================')
 
-    print_data_dimensions(x_data)
+        print_data_dimensions(x_data)
 
-    #Create the dataframe by flattening x_data and using appropriate headings
-    feature_labels = select_feature_labels(args.type)
-    x_heading = generate_X_heading(feature_labels, args.max_constituents)
+        feature_labels = select_feature_labels(args.type)
+        x_heading = generate_X_heading(feature_labels, args.max_constituents)
 
-    x_data = reshape_X(x_data)
-    y_data = [classes[np.argmax(i)] for i in y_data]
+        x_data = reshape_X(x_data)
 
-    df = pd.DataFrame(data = x_data, columns = x_heading)
+        df = pd.DataFrame(data = x_data, columns = x_heading)
+
+    else:
+        print('Removing all constituents from the jets.')
+        print('=================')
+
+        df = pd.DataFrame()
+        
     
     if args.include_aggregated_features:
         for item in means:
@@ -162,12 +142,12 @@ def main(args):
             df[item] = sums[item]
 
         df["nb_constituents"] = nb_constituents_precut
-
         agg_flag = 'agg'
 
     else:
         agg_flag = 'noagg'
     
+    y_data = [classes[np.argmax(i)] for i in y_data]
     df["class"] = y_data
 
     if args.positive_class is not None:
@@ -184,7 +164,7 @@ def main(args):
     )
     '''
 
-    out_file_name = f"jet_images_c{args.max_constituents}_sort_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
+    out_file_name = f"jet_images_c{args.max_constituents}_{args.type}_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
     output_file = os.path.join(args.output_dir, f"{out_file_name}")
 
     df.to_csv(output_file, index = False)
@@ -203,6 +183,46 @@ def get_pt_index(selection_type: str):
     if selection_type == "andre":
         return 0
 
+def load_data(data_path: str) -> tuple([np.ndarray, np.ndarray]):
+    """Loads the full dataset."""
+    data = h5py.File(data_path)
+    x_data = data["jetConstituentList"][:, :, :]
+    y_data = data["jets"][:, -6:-1]
+
+    return x_data, y_data
+
+def load_all_files_in_directory(data_file_dir: str, verbosity: int = 1):
+    data_file_paths = get_file_paths(data_file_dir)
+
+    if verbosity > 0:
+        print('\nReading files...')
+
+    # x_data, y_data = select_features(args.type, data_file_paths[0])
+    x_data, y_data = load_data(data_file_paths[0])
+    n_file = 1
+    
+    if verbosity > 0:
+        sys.stdout.write('\r')
+        sys.stdout.write(f"Read file [{n_file}/{len(data_file_paths)}]")
+        sys.stdout.flush()
+
+    for file_path in data_file_paths[1:]:
+        n_file +=1
+
+        # add_x_data, add_y_data = select_features(args.type, file_path)
+        add_x_data, add_y_data = load_data(file_path)
+        x_data = np.concatenate((x_data, add_x_data), axis=0)
+        y_data = np.concatenate((y_data, add_y_data), axis=0)
+
+        if verbosity > 0:
+            sys.stdout.write('\r')
+            sys.stdout.write(f"Read file [{n_file}/{len(data_file_paths)}]")
+            sys.stdout.flush()
+    
+    if verbosity > 0:
+        print(tcols.OKGREEN + '\nAll files read' + tcols.ENDC)
+
+    return x_data, y_data
 
 def select_features(choice: str, data_path: str) -> tuple([np.ndarray, np.ndarray]):
     """Choose what feature selection to employ on the data."""
@@ -258,6 +278,24 @@ def select_features_jedinet(data_file_path) -> tuple([np.ndarray, np.ndarray]):
 
 def select_feature_labels(choice: str) -> list[str]:
     """Gets the feature labels for a certain type of selection."""
+    all_feature_labels = [
+        "px",
+        "py",
+        "pz",
+        "E",
+        "E_rel",
+        "pT",
+        "pT_rel",
+        "eta",
+        "eta_rel",
+        "eta_rot",
+        "phi",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta",
+        "cos_theta_rel"
+    ]
     jedinet_feature_labels = [
         "px",
         "py",
@@ -276,11 +314,42 @@ def select_feature_labels(choice: str) -> list[str]:
         "cos_theta",
         "cos_theta_rel"
     ]
+    cut1_feature_labels = [
+        "E",
+        "E_rel",
+        "pT",
+        "pT_rel",
+        "eta",
+        "eta_rel",
+        "eta_rot",
+        "phi",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta",
+        "cos_theta_rel"
+    ]
+    cut2_feature_labels = [
+        "E",
+        "E_rel",
+        "pT",
+        "pT_rel",
+        "eta_rel",
+        "eta_rot",
+        "phi",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta_rel"
+    ]
     andre_feature_labels = ["pT", "eta_rel", "phi_rel"]
 
     switcher = {
+        "all": lambda: all_feature_labels,
         "andre": lambda: andre_feature_labels,
         "jedinet": lambda: jedinet_feature_labels,
+        "cut1": lambda: cut1_feature_labels,
+        "cut2": lambda: cut2_feature_labels,
     }
 
     feature_labels = switcher.get(choice, lambda: None)()
@@ -288,6 +357,28 @@ def select_feature_labels(choice: str) -> list[str]:
         raise TypeError("Feature labels name not valid!")
 
     return feature_labels
+
+def get_feature_indices(selection_type: str):
+    """Returns indices of selected features in data array."""
+    indices = []
+    full_feature_labels = select_feature_labels('jedinet')
+
+    for feature in select_feature_labels(selection_type):
+        index = full_feature_labels.index(feature)
+        indices.append(index)
+
+    return indices
+
+def choose_features(x_data, selection_type: str):
+
+    if selection_type == 'all':
+        selected_data = x_data
+    
+    else:
+        feature_indices = get_feature_indices(selection_type)
+        selected_data = [jet[:,feature_indices] for jet in x_data]
+
+    return selected_data
 
 def generate_X_heading(feature_labels: list[str], n_constituents: int) -> list[str]:
     '''
@@ -343,6 +434,8 @@ def remove_zero_padding(
     Returns:
         The processed data array.
     """
+    print(f'Removing zero-padding from input dataset...')
+
     boolean_mask = np.any(x_data, axis = 2)
     structure_memory = boolean_mask.sum(axis=1)
     x_data = np.split(x_data[boolean_mask, :], np.cumsum(structure_memory)[:-1])
@@ -380,7 +473,7 @@ def cut_transverse_momentum(
 
     return x_data, y_data, structure_memory
 
-def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_type: str, verbosity:int = 1) -> np.ndarray:
+def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_type: str = 'all', verbosity:int = 1) -> np.ndarray:
     """Sorts data according to the given feature. This can be highest to lowest (default)
     or lowest to highest.
 
@@ -420,7 +513,7 @@ def sort_data(x_data: np.ndarray, sorted_feature: int, ascending: bool, feature_
                 print(
                     tcols.FAIL 
                     + f'Unable to sort by {sorted_feature} from {ascending*"low to high" + (not ascending)*"high to low"}.'
-                    + tcols.ENC)
+                    + tcols.ENDC)
                 print(f'Please check that {sorted_feature} is in the {feature_type} list of features.')
                 print('Data will be sorted by pT as default.')
 
@@ -455,7 +548,7 @@ def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int, padded_v
 
     return np.array(x_data)
 
-def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type, sorted_feature='pT', sort_ascending=False):
+def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = 'all', sorted_feature='pT', sort_ascending=False):
     """Returns a list of aggregated features that can be added to the final dataframe."""
     sorted_data = sort_data(x_data, sorted_feature, sort_ascending, feature_type, verbosity=0)
     
@@ -480,14 +573,24 @@ def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type
     
     return aggregated_feature
 
-def aggregate_all_features(x_data, operation, feature_type):
-    """Returns dictionary with all features aggregated by specific operation."""
+def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', x_data_feature_type: str = 'all'):
+    """Returns dictionary with all features aggregated by specific operation.
+    For more info on feature types see select_feature_labels.
+    
+    Args:
+        x_data: data array to be processed
+        operation: aggregation operation used to create the new feature
+        feature_type: selection of features to use for aggregation
+        x_data_feature_type: selection of features present in x_data
+        
+    Returns:
+        dictionary of aggregated features with their corresponding names"""
     agg_feature_dict = {}
     
-    feature_labels  = select_feature_labels(feature_type)
+    feature_labels = select_feature_labels(feature_type)
 
     for feature in feature_labels:
-        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, None, feature_type)
+        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, None, feature_type = x_data_feature_type)
 
     return agg_feature_dict
 

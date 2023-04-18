@@ -112,6 +112,7 @@ plt.ylabel("Background Efficiency")
 plt.ylim(0.001,1)
 plt.grid(True)
 plt.legend(loc='upper left')
-plt.figtext(0.25, 0.90,f"Accuracy_{args.model_1_label} = {evaluation_1['accuracy']:.4f}, Accuracy_{args.model_2_label} = {evaluation_2['accuracy']:.4f}",fontweight='bold', wrap=True, horizontalalignment='right', fontsize=14)
+plt.figtext(0.05, 0.92,f"Accuracy_{args.model_1_label} = {evaluation_1['accuracy']:.4f}\nAccuracy_{args.model_2_label} = {evaluation_2['accuracy']:.4f}",
+            fontweight='bold', wrap=True, horizontalalignment='left', fontsize=14)
 plt.savefig(os.path.join(args.plot_output_dir, args.plot_name))
 plt.close()
