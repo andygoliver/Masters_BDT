@@ -69,8 +69,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--include_aggregated_features",
-    type=bool,
-    default=False,
+    action= "store_true",
     help="Choose whether to add aggregated features to the dataset.",
 )
 parser.add_argument(
@@ -81,14 +80,14 @@ parser.add_argument(
 )
 parser.add_argument(
     "--aggregated_feature_number",
-    type=str,
+    type=int,
     default=None,
+    nargs = '+',
     help="Choose how many constituents to aggregate over.",
 )
 parser.add_argument(
     "--include_nb_constituents",
-    type=bool,
-    default=False,
+    action= "store_true",
     help="Choose whether to add the number of constituents to the dataset as an additional feature.",
 )
 parser.add_argument(
@@ -125,8 +124,20 @@ def main(args):
         else:
             aggregated_feature_selection = args.aggregated_feature_selection
 
-        means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = args.aggregated_feature_number)
-        sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = args.aggregated_feature_number)
+        if args.aggregated_feature_number == None:
+            means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = None)
+            sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = None)
+
+        else:
+            means = {}
+            sums = {}
+            for aggregated_feature_number in args.aggregated_feature_number:
+                add_means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
+                add_sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
+
+                means.update(add_means)
+                sums.update(add_sums)
+        
         # means_ = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
         # sums_ = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
         print('=================')    
@@ -160,16 +171,21 @@ def main(args):
         
     
     if args.include_aggregated_features:
-        for item in means:
-            df[item] = means[item]
+        # for item in means:
+        #     df[item] = means[item]
 
-        for item in sums:
-            df[item] = sums[item]
+        # for item in sums:
+        #     df[item] = sums[item]
+
+        df = pd.concat([df, pd.DataFrame(means)], axis =1)
+        df = pd.concat([df, pd.DataFrame(sums)], axis =1)
 
         agg_flag = 'agg'
 
         if args.aggregated_feature_number != None:
-            agg_flag += f'_c{args.aggregated_feature_number}'
+            agg_flag += f'_c{args.aggregated_feature_number[0]}'
+            for i in range(1,len(args.aggregated_feature_number)):
+                agg_flag += f'-{args.aggregated_feature_number[i]}'
 
         if args.aggregated_feature_selection != None:
             agg_flag += f'_{args.aggregated_feature_selection}'
@@ -673,8 +689,14 @@ def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', nb
     
     feature_labels = select_feature_labels(feature_type)
 
+    if nb_const == None or nb_const == 150:
+        flag = ''
+    
+    else:
+        flag = f'_c{nb_const}'
+
     for feature in feature_labels:
-        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = x_data_feature_type)
+        agg_feature_dict[f'{feature}_{operation}{flag}'] = create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = x_data_feature_type)
 
     return agg_feature_dict
 

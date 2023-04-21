@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --job-name=c8_cut2
+#SBATCH --job-name=naggs
 #SBATCH --account=t3
 #SBATCH --partition=standard
 #SBATCH --mem=16000
@@ -8,13 +8,13 @@
 
 # Folder where the data is located for the training and testing of the BDT.
 # Change so it suits your configuration.
-data_path_train="/work/aoliver/Data/binary_class/jet_images_c8_cut2_hpT_pct_agg_train.csv"
+data_path_train="/work/aoliver/Data/binary_class/jet_images_c0_pct_agg_c1-2-3-5-10-20-50-150_train.csv"
 # data_path_test="/work/aoliver/Data/jet_images_c8_pt2.0_andre_test.csv"
 
 # Default parameters
 # nb_jets=None
 model_output_dir=/work/aoliver/BDT/Models/Binary_class/
-model_name=BDT_c8_cut2_hpT_pct_agg
+model_name=BDT_c0_pct_agg_c1-2-3-5-10-20-50-150
 
 # Gather parameters given by user.
 for ARGUMENT in "$@"
