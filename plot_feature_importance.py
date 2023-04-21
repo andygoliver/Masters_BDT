@@ -24,15 +24,25 @@ parser.add_argument(
     help="Name of saved figure.",
 )
 parser.add_argument(
+    "fig_directory",
+    type=str,
+    help="Name of directory in which figure will be saved.",
+)
+parser.add_argument(
     "nb_constituents",
     type=int,
     help="Number of constituents per jet used in the saved model.",
 )
 parser.add_argument(
-    "--nb_full_agg_features",
+    "nb_full_agg_features",
     type=int,
-    default = 0,
     help="Number of full aggregated features in saved model.",
+)
+parser.add_argument(
+    "--feature_selection",
+    type=str,
+    default = 'all',
+    help="Select features to appear in the plot (should correspond to those present in the model).",
 )
 parser.add_argument(
     "--include_nb_constituents",
@@ -40,15 +50,9 @@ parser.add_argument(
     default = False,
     help="Toggle inclusion of 'nb_constituents' feature in saved model.",
 )
-parser.add_argument(
-    "--fig_directory",
-    type=str,
-    default = "Plots/Feat_imp",
-    help="Name of directory in which figure will be saved.",
-)
 
 def get_2d_importances(model_path: str, variable_importance:str, nb_constituents, nb_full_agg_features = 0, 
-                       include_nb_constituents = False, feature_choice: str = 'jedinet') -> np.ndarray:
+                       include_nb_constituents = False, feature_choice: str = 'all') -> np.ndarray:
     """Return the feature importances as a 2D array that can be used to create the seaborn heatmap."""
     feature_list = select_feature_labels(feature_choice)
     full_agg_features = ["mean", "sum"]
@@ -136,5 +140,10 @@ importances  = ['INV_MEAN_MIN_DEPTH', 'NUM_AS_ROOT', 'NUM_NODES', 'SUM_SCORE']
 for importance in importances:
     print(importance)
     plot_importances(args.model_path, importance, args.nb_constituents, nb_full_agg_features = args.nb_full_agg_features, 
-                     include_nb_constituents=args.include_nb_constituents, 
+                     feature_choice= args.feature_selection, include_nb_constituents=args.include_nb_constituents, 
                      show_fig = False, save_fig = True, fig_name = args.fig_name, fig_directory = args.fig_directory)
+    
+# inspector_path = os.path.join(args.model_path, "assets")
+# inspector = tfdf.inspector.make_inspector(inspector_path)
+
+# print(inspector.variable_importances()['INV_MEAN_MIN_DEPTH'])

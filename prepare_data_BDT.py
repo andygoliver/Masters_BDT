@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     "--max_constituents",
     type=int,
-    default=8,
+    default=16,
     help="Maximum number of jet constituents data should have.",
 )
 parser.add_argument(
@@ -74,6 +74,24 @@ parser.add_argument(
     help="Choose whether to add aggregated features to the dataset.",
 )
 parser.add_argument(
+    "--aggregated_feature_selection",
+    type=str,
+    default=None,
+    help="Choose which features to aggreate over.",
+)
+parser.add_argument(
+    "--aggregated_feature_number",
+    type=str,
+    default=None,
+    help="Choose how many constituents to aggregate over.",
+)
+parser.add_argument(
+    "--include_nb_constituents",
+    type=bool,
+    default=False,
+    help="Choose whether to add the number of constituents to the dataset as an additional feature.",
+)
+parser.add_argument(
     "--flag",
     type=str,
     default="",
@@ -100,8 +118,15 @@ def main(args):
 
     if args.include_aggregated_features:
         print(f'Creating aggregated features...')
-        means = aggregate_all_features(x_data, 'mean', feature_type = args.type)
-        sums = aggregate_all_features(x_data, 'sum', feature_type = args.type)
+
+        if args.aggregated_feature_selection == None:
+            aggregated_feature_selection = args.type
+
+        else:
+            aggregated_feature_selection = args.aggregated_feature_selection
+
+        means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = args.aggregated_feature_number)
+        sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = args.aggregated_feature_number)
         # means_ = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
         # sums_ = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
         print('=================')    
@@ -141,12 +166,20 @@ def main(args):
         for item in sums:
             df[item] = sums[item]
 
-        df["nb_constituents"] = nb_constituents_precut
         agg_flag = 'agg'
+
+        if args.aggregated_feature_number != None:
+            agg_flag += f'_c{args.aggregated_feature_number}'
+
+        if args.aggregated_feature_selection != None:
+            agg_flag += f'_{args.aggregated_feature_selection}'
 
     else:
         agg_flag = 'noagg'
     
+    if args.include_nb_constituents:
+        df["nb_constituents"] = nb_constituents_precut
+
     y_data = [classes[np.argmax(i)] for i in y_data]
     df["class"] = y_data
 
@@ -158,13 +191,10 @@ def main(args):
     else:
         sort_flag = 'h'
 
-    '''
-    out_file_name = (
-        f"jet_images_c{args.max_constituents}_pt{args.min_pt}_{args.type}_sort_{sort_flag}{args.sorted_feature}_pad{args.padded_value}_pc{args.positive_class}_{args.flag}.csv"
-    )
-    '''
-
-    out_file_name = f"jet_images_c{args.max_constituents}_{args.type}_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
+    if args.max_constituents == 0:
+        out_file_name = f"jet_images_c{args.max_constituents}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
+    else:
+        out_file_name = f"jet_images_c{args.max_constituents}_{args.type}_{sort_flag}{args.sorted_feature}_pc{args.positive_class}_{agg_flag}_{args.flag}.csv"
     output_file = os.path.join(args.output_dir, f"{out_file_name}")
 
     df.to_csv(output_file, index = False)
@@ -314,6 +344,23 @@ def select_feature_labels(choice: str) -> list[str]:
         "cos_theta",
         "cos_theta_rel"
     ]
+    nopT_feature_labels = [
+        "px",
+        "py",
+        "pz",
+        "E",
+        "E_rel",
+        "pT_rel",
+        "eta",
+        "eta_rel",
+        "eta_rot",
+        "phi",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta",
+        "cos_theta_rel"
+    ]
     cut1_feature_labels = [
         "E",
         "E_rel",
@@ -342,14 +389,51 @@ def select_feature_labels(choice: str) -> list[str]:
         "Delta_R",
         "cos_theta_rel"
     ]
+    cut3_feature_labels = [
+        "E",
+        "E_rel",
+        "pT_rel",
+        "eta_rel",
+        "eta_rot",
+        "phi",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta_rel"
+    ]
+    cut4_feature_labels = [
+        "E",
+        "E_rel",
+        "pT",
+        "pT_rel",
+        "eta_rel",
+        "eta_rot",
+        "phi_rel",
+        "phi_rot",
+        "Delta_R",
+        "cos_theta_rel"
+    ]
+    cut5_feature_labels = [
+        "E",
+        "E_rel",
+        "pT",
+        "pT_rel",
+        "eta_rot",
+        "phi_rot",
+        "Delta_R",
+    ]
     andre_feature_labels = ["pT", "eta_rel", "phi_rel"]
 
     switcher = {
         "all": lambda: all_feature_labels,
         "andre": lambda: andre_feature_labels,
         "jedinet": lambda: jedinet_feature_labels,
+        "nopT": lambda: nopT_feature_labels,
         "cut1": lambda: cut1_feature_labels,
         "cut2": lambda: cut2_feature_labels,
+        "cut3": lambda: cut3_feature_labels,
+        "cut4": lambda: cut4_feature_labels,
+        "cut5": lambda: cut5_feature_labels,
     }
 
     feature_labels = switcher.get(choice, lambda: None)()
@@ -573,8 +657,8 @@ def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type
     
     return aggregated_feature
 
-def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', x_data_feature_type: str = 'all'):
-    """Returns dictionary with all features aggregated by specific operation.
+def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', nb_const: int = None, x_data_feature_type: str = 'all'):
+    """Returns dictionary with a selection of features aggregated by specific operation.
     For more info on feature types see select_feature_labels.
     
     Args:
@@ -590,7 +674,7 @@ def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', x_
     feature_labels = select_feature_labels(feature_type)
 
     for feature in feature_labels:
-        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, None, feature_type = x_data_feature_type)
+        agg_feature_dict[f'{feature}_{operation}'] = create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = x_data_feature_type)
 
     return agg_feature_dict
 
