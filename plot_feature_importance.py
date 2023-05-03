@@ -56,6 +56,11 @@ parser.add_argument(
     action= "store_true",
     help="Toggle inclusion of 'nb_constituents' feature in saved model.",
 )
+parser.add_argument(
+    "--include_sparse_attention",
+    action= "store_true",
+    help="Toggle inclusion of 'sparse_attention' feature in saved model.",
+)
 
 def main(args):
     # importances = ['INV_MEAN_MIN_DEPTH']
@@ -65,7 +70,7 @@ def main(args):
         print(importance)
         plot_importances(args.model_path, importance, args.nb_constituents, nb_full_agg_features = args.nb_full_agg_features, 
                         feature_choice= args.feature_selection, include_nb_constituents=args.include_nb_constituents, 
-                        agg_feature_nb_constituents= args.agg_feature_nb_constituents,
+                        include_sparse_attention= args.include_sparse_attention, agg_feature_nb_constituents= args.agg_feature_nb_constituents,
                         show_fig = False, save_fig = True, fig_name = args.fig_name, fig_directory = args.fig_directory)
         
     inspector_path = os.path.join(args.model_path, "assets")
@@ -75,11 +80,11 @@ def main(args):
         
 
 def get_2d_importances(model_path: str, variable_importance:str, nb_constituents, nb_full_agg_features = 0,
-                       agg_feature_nb_constituents = None, 
+                       agg_feature_nb_constituents = None, include_sparse_attention = False,
                        include_nb_constituents = False, feature_choice: str = 'all') -> np.ndarray:
     """Return the feature importances as a 2D array that can be used to create the seaborn heatmap."""
-    feature_list = select_feature_labels(feature_choice)
-    full_agg_features = ["mean", "sum"]
+    feature_list = select_feature_labels(feature_choice, include_sparse_attention)
+    full_agg_features = ["mean", "sum", "max"]
 
     inspector_path = os.path.join(model_path, "assets")
     inspector = tfdf.inspector.make_inspector(inspector_path)
@@ -149,13 +154,13 @@ def get_2d_importances(model_path: str, variable_importance:str, nb_constituents
     return feature_importances
 
 def plot_importances(model_path: str, variable_importance:str, nb_constituents:int, nb_full_agg_features:int = 0, include_nb_constituents:bool = False,
-                     agg_feature_nb_constituents = None, feature_choice: str = 'jedinet', cmap: str = "YlGnBu",
+                     include_sparse_attention= False, agg_feature_nb_constituents = None, feature_choice: str = 'jedinet', cmap: str = "YlGnBu",
                      save_fig: bool = False, fig_name:str = '', fig_directory:str = 'Plots', show_fig:bool = False):
     
     feature_importances = get_2d_importances(model_path, variable_importance, nb_constituents, nb_full_agg_features=nb_full_agg_features, 
-                                             agg_feature_nb_constituents= agg_feature_nb_constituents,
+                                             agg_feature_nb_constituents= agg_feature_nb_constituents, include_sparse_attention=include_sparse_attention,
                                              include_nb_constituents=include_nb_constituents,  feature_choice = feature_choice)
-    full_agg_features = ["mean", "sum"]
+    full_agg_features = ["mean", "sum", "max"]
 
     xlabels = np.arange(nb_constituents)
 
@@ -173,7 +178,8 @@ def plot_importances(model_path: str, variable_importance:str, nb_constituents:i
 
     # use fisize (18.5,5) for c50 and (55,5) for c150, width ~3/8*nb_constituents 
     # plt.subplots(figsize=(18.5,5))
-    ax = sns.heatmap(feature_importances, linewidth=0.5, cmap=cmap, yticklabels = select_feature_labels(feature_choice), 
+    plt.subplots(figsize=(10,5))
+    ax = sns.heatmap(feature_importances, linewidth=0.5, cmap=cmap, yticklabels = select_feature_labels(feature_choice, include_sparse_attention), 
                      xticklabels = xlabels, square = True, mask = feature_importances == 0)
     ax.set(ylabel = 'Feature', title=f'{variable_importance} feature importance')
 

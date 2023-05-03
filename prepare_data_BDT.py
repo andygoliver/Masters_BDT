@@ -67,10 +67,18 @@ parser.add_argument(
     default=-9999,
     help="The value used to pad the arrays.",
 )
+# parser.add_argument(
+#     "--include_aggregated_features",
+#     action= "store_true",
+#     help="Choose whether to add aggregated features to the dataset.",
+# )
 parser.add_argument(
-    "--include_aggregated_features",
-    action= "store_true",
-    help="Choose whether to add aggregated features to the dataset.",
+    "--aggregation_operations",
+    type=str,
+    default=None,
+    nargs = '+',
+    choices = ['mean', 'median', 'max', 'min', 'sum'],
+    help="Aggregation operations to perform on the data.",
 )
 parser.add_argument(
     "--aggregated_feature_selection",
@@ -109,38 +117,44 @@ def main(args):
         print('----------------------------------------------------------')
         return
 
-    x_data, y_data = load_all_files_in_directory(args.data_file_dir)
+    x_data, y_data = load_files_in_directory(args.data_file_dir)
     print('=================')
 
     x_data, nb_constituents_precut = remove_zero_padding(x_data)
     print('=================')
 
-    if args.include_aggregated_features:
-        print(f'Creating aggregated features...')
+    # if args.include_aggregated_features:
+    #     print(f'Creating aggregated features...')
 
-        if args.aggregated_feature_selection == None:
-            aggregated_feature_selection = args.type
+    #     if args.aggregated_feature_selection == None:
+    #         aggregated_feature_selection = args.type
 
-        else:
-            aggregated_feature_selection = args.aggregated_feature_selection
+    #     else:
+    #         aggregated_feature_selection = args.aggregated_feature_selection
 
-        if args.aggregated_feature_number == None:
-            means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = None)
-            sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = None)
+    #     if args.aggregated_feature_number == None:
+    #         means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = None)
+    #         sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = None)
 
-        else:
-            means = {}
-            sums = {}
-            for aggregated_feature_number in args.aggregated_feature_number:
-                add_means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
-                add_sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
+    #     else:
+    #         means = {}
+    #         sums = {}
+    #         for aggregated_feature_number in args.aggregated_feature_number:
+    #             add_means = aggregate_all_features(x_data, 'mean', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
+    #             add_sums = aggregate_all_features(x_data, 'sum', feature_type = aggregated_feature_selection, nb_const = aggregated_feature_number)
 
-                means.update(add_means)
-                sums.update(add_sums)
+    #             means.update(add_means)
+    #             sums.update(add_sums)
         
         # means_ = create_aggregated_feature(x_data, 'mean', 'Delta_R', 16, args.type)
         # sums_ = create_aggregated_feature(x_data, 'sum', 'pT', 16, args.type, sorted_feature='Delta_R', sort_ascending=True)
-        print('=================')    
+        # print('=================')   
+    
+    if args.aggregation_operations is not None:
+        print('Creating aggregated features.')
+        aggregation_dict = perform_all_aggregations(x_data, args.aggregation_operations,
+                                                    nb_consts = args.aggregated_feature_number) 
+        print('=================')
 
     x_data = sort_data(x_data, args.sorted_feature, args.sort_ascending)
     print('=================')
@@ -168,28 +182,45 @@ def main(args):
         print('=================')
 
         df = pd.DataFrame()
-        
     
-    if args.include_aggregated_features:
-        # for item in means:
-        #     df[item] = means[item]
+    # if args.include_aggregated_features:
+    #     # for item in means:
+    #     #     df[item] = means[item]
 
-        # for item in sums:
-        #     df[item] = sums[item]
+    #     # for item in sums:
+    #     #     df[item] = sums[item]
 
-        df = pd.concat([df, pd.DataFrame(means)], axis =1)
-        df = pd.concat([df, pd.DataFrame(sums)], axis =1)
+    #     df = pd.concat([df, pd.DataFrame(means)], axis =1)
+    #     df = pd.concat([df, pd.DataFrame(sums)], axis =1)
 
-        agg_flag = 'agg'
+    #     agg_flag = 'agg'
 
-        if args.aggregated_feature_number != None:
+    #     if args.aggregated_feature_number != None:
+    #         agg_flag += f'_c{args.aggregated_feature_number[0]}'
+    #         for i in range(1,len(args.aggregated_feature_number)):
+    #             agg_flag += f'-{args.aggregated_feature_number[i]}'
+
+    #     if args.aggregated_feature_selection != None:
+    #         agg_flag += f'_{args.aggregated_feature_selection}'
+
+    # else:
+    #     agg_flag = 'noagg'
+
+    if args.aggregation_operations is not None:
+        print('Adding aggregated features to pandas dataframe')
+        df = pd.concat([df, pd.DataFrame(aggregation_dict)], axis =1)
+    
+        agg_flag = f'agg_{args.aggregation_operations[0]}'
+        for i in range(1,len(args.aggregation_operations)):
+                agg_flag += f'-{args.aggregation_operations[i]}'
+        
+        if args.aggregated_feature_number is not None:
             agg_flag += f'_c{args.aggregated_feature_number[0]}'
             for i in range(1,len(args.aggregated_feature_number)):
                 agg_flag += f'-{args.aggregated_feature_number[i]}'
 
         if args.aggregated_feature_selection != None:
             agg_flag += f'_{args.aggregated_feature_selection}'
-
     else:
         agg_flag = 'noagg'
     
@@ -270,6 +301,46 @@ def load_all_files_in_directory(data_file_dir: str, verbosity: int = 1):
 
     return x_data, y_data
 
+def load_files_in_directory(data_file_dir: str, nb_files: int = None, verbosity: int = 1):
+    data_file_paths = get_file_paths(data_file_dir)
+
+    if nb_files == None:
+        max_files = len(data_file_paths)
+    else:
+        max_files = nb_files
+
+    if verbosity > 0:
+        print(f'Reading files in {data_file_dir}')
+
+    # x_data, y_data = select_features(args.type, data_file_paths[0])
+    x_data, y_data = load_data(data_file_paths[0])
+    n_file = 1
+    
+    if verbosity > 0:
+        sys.stdout.write('\r')
+        sys.stdout.write(f"Read file [{n_file}/{max_files}]")
+        sys.stdout.flush()
+
+    for file_path in data_file_paths[1:nb_files]:
+        n_file +=1
+
+        # add_x_data, add_y_data = select_features(args.type, file_path)
+        add_x_data, add_y_data = load_data(file_path)
+        x_data = np.concatenate((x_data, add_x_data), axis=0)
+        y_data = np.concatenate((y_data, add_y_data), axis=0)
+
+        if verbosity > 0:
+            sys.stdout.write('\r')
+            sys.stdout.write(f"Read file [{n_file}/{max_files}]")
+            sys.stdout.flush()
+    
+    if verbosity > 0:
+        print("\033[92m"+
+              "\nAll files read"+
+              "\033[0m")
+
+    return x_data, y_data
+
 def select_features(choice: str, data_path: str) -> tuple([np.ndarray, np.ndarray]):
     """Choose what feature selection to employ on the data."""
     switcher = {
@@ -322,7 +393,7 @@ def select_features_jedinet(data_file_path) -> tuple([np.ndarray, np.ndarray]):
 
     return x_data, y_data
 
-def select_feature_labels(choice: str) -> list[str]:
+def select_feature_labels(choice: str, include_sparse_attention:bool = False) -> list[str]:
     """Gets the feature labels for a certain type of selection."""
     all_feature_labels = [
         "px",
@@ -455,27 +526,30 @@ def select_feature_labels(choice: str) -> list[str]:
     feature_labels = switcher.get(choice, lambda: None)()
     if feature_labels is None:
         raise TypeError("Feature labels name not valid!")
+    
+    if include_sparse_attention:
+        feature_labels.append("sparse_attention")
 
     return feature_labels
 
-def get_feature_indices(selection_type: str):
+def get_feature_indices(selection_type: str, include_sparse_attention:bool = False):
     """Returns indices of selected features in data array."""
     indices = []
-    full_feature_labels = select_feature_labels('jedinet')
+    full_feature_labels = select_feature_labels('all', include_sparse_attention=include_sparse_attention)
 
-    for feature in select_feature_labels(selection_type):
+    for feature in select_feature_labels(selection_type, include_sparse_attention=include_sparse_attention):
         index = full_feature_labels.index(feature)
         indices.append(index)
 
     return indices
 
-def choose_features(x_data, selection_type: str):
+def choose_features(x_data, selection_type: str, include_sparse_attention:bool = False):
 
     if selection_type == 'all':
         selected_data = x_data
     
     else:
-        feature_indices = get_feature_indices(selection_type)
+        feature_indices = get_feature_indices(selection_type, include_sparse_attention=include_sparse_attention)
         selected_data = [jet[:,feature_indices] for jet in x_data]
 
     return selected_data
@@ -648,11 +722,69 @@ def restrict_nb_constituents(x_data: np.ndarray, max_constituents: int, padded_v
 
     return np.array(x_data)
 
-def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = 'all', sorted_feature='pT', sort_ascending=False):
+# def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = 'all', 
+#                               sorted_feature='pT', sort_ascending=False):
+#     """Returns a list of aggregated features that can be added to the final dataframe."""
+#     sorted_data = sort_data(x_data, sorted_feature, sort_ascending, feature_type, verbosity=0)
+    
+#     feature_labels  = select_feature_labels(feature_type)
+#     try:
+#         feature_index = feature_labels.index(feature)
+#     except:
+#         print(f"'{feature}' not found in list of features!")
+#         return
+    
+#     switcher = {
+#         "mean": lambda: [np.mean(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+#         "median": lambda: [np.median(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+#         "min": lambda: [np.amin(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+#         "max": lambda: [np.amax(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+#         "sum": lambda: [np.sum(jet_const[:nb_const,feature_index]) for jet_const in sorted_data],
+#     }
+
+#     aggregated_feature = switcher.get(operation, lambda: None)()
+#     if aggregated_feature is None:
+#         raise TypeError(f"'{operation}' not found from list of operations!")
+    
+#     return aggregated_feature
+
+# def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', 
+#                            nb_const: int = None, x_data_feature_type: str = 'all'):
+#     """Returns dictionary with a selection of features aggregated by specific operation.
+#     For more info on feature types see select_feature_labels.
+    
+#     Args:
+#         x_data: data array to be processed
+#         operation: aggregation operation used to create the new feature
+#         feature_type: selection of features to use for aggregation
+#         nb_const: number of features over whcih aggregation is performed
+#         x_data_feature_type: selection of features present in x_data
+        
+#     Returns:
+#         dictionary of aggregated features with their corresponding names"""
+#     agg_feature_dict = {}
+    
+#     feature_labels = select_feature_labels(feature_type)
+
+#     if nb_const == None or nb_const == 150:
+#         flag = ''
+    
+#     else:
+#         flag = f'_c{nb_const}'
+
+#     for feature in feature_labels:
+#         agg_feature_dict[f'{feature}_{operation}{flag}'] = create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = x_data_feature_type)
+
+#     return agg_feature_dict
+
+def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = 'all', 
+                              sorted_feature='pT', sort_ascending=False,
+                              include_sparse_attention:bool =False):
     """Returns a list of aggregated features that can be added to the final dataframe."""
     sorted_data = sort_data(x_data, sorted_feature, sort_ascending, feature_type, verbosity=0)
     
-    feature_labels  = select_feature_labels(feature_type)
+    feature_labels  = select_feature_labels(feature_type,
+                                            include_sparse_attention= include_sparse_attention)
     try:
         feature_index = feature_labels.index(feature)
     except:
@@ -673,7 +805,9 @@ def create_aggregated_feature(x_data, operation, feature, nb_const, feature_type
     
     return aggregated_feature
 
-def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', nb_const: int = None, x_data_feature_type: str = 'all'):
+def aggregate_features(x_data, operation: str, feature_type: str = 'all',
+                       include_sparse_attention:bool = False,
+                       nb_const: int = None, x_data_feature_type: str = 'all'):
     """Returns dictionary with a selection of features aggregated by specific operation.
     For more info on feature types see select_feature_labels.
     
@@ -681,13 +815,15 @@ def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', nb
         x_data: data array to be processed
         operation: aggregation operation used to create the new feature
         feature_type: selection of features to use for aggregation
+        nb_const: number of features over whcih aggregation is performed
         x_data_feature_type: selection of features present in x_data
         
     Returns:
         dictionary of aggregated features with their corresponding names"""
     agg_feature_dict = {}
     
-    feature_labels = select_feature_labels(feature_type)
+    feature_labels = select_feature_labels(feature_type, 
+                                           include_sparse_attention= include_sparse_attention)
 
     if nb_const == None or nb_const == 150:
         flag = ''
@@ -696,9 +832,34 @@ def aggregate_all_features(x_data, operation: str, feature_type: str = 'all', nb
         flag = f'_c{nb_const}'
 
     for feature in feature_labels:
-        agg_feature_dict[f'{feature}_{operation}{flag}'] = create_aggregated_feature(x_data, operation, feature, nb_const, feature_type = x_data_feature_type)
+        agg_feature_dict[f'{feature}_{operation}{flag}'] = create_aggregated_feature(x_data, operation, feature, 
+                                                                                     nb_const, 
+                                                                                     feature_type = x_data_feature_type,
+                                                                                     include_sparse_attention=include_sparse_attention)
 
     return agg_feature_dict
+
+def perform_all_aggregations(x_data, operations: list[str], feature_type: str = 'all',
+                             nb_consts: list[int] = None, x_data_feature_type: str = 'all',
+                             include_sparse_attention:bool = False):
+
+    full_aggregation_dict = {}
+
+    for operation in operations:
+        if nb_consts == None:
+            agg_feature_dict = aggregate_features(x_data, operation, feature_type= feature_type,
+                                                  include_sparse_attention= include_sparse_attention,
+                                                  x_data_feature_type= x_data_feature_type)
+            full_aggregation_dict.update(agg_feature_dict)
+        
+        else:
+            for nb_const in nb_consts:
+                agg_feature_dict = aggregate_features(x_data, operation, feature_type= feature_type,
+                                                      include_sparse_attention= include_sparse_attention,
+                                                    nb_const= nb_const, x_data_feature_type= x_data_feature_type)
+                full_aggregation_dict.update(agg_feature_dict)
+    
+    return full_aggregation_dict
 
 def print_data_dimensions(data: np.ndarray):
     """Prints the dimensions of the data explicitely."""
