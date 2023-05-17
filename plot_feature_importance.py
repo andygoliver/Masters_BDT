@@ -177,8 +177,8 @@ def plot_importances(model_path: str, variable_importance:str, nb_constituents:i
         xlabels = np.append(xlabels, 'nb_constituents')
 
     # use fisize (18.5,5) for c50 and (55,5) for c150, width ~3/8*nb_constituents 
-    # plt.subplots(figsize=(18.5,5))
-    plt.subplots(figsize=(10,5))
+    plt.subplots(figsize=(18.5,5))
+    # plt.subplots(figsize=(10,5))
     ax = sns.heatmap(feature_importances, linewidth=0.5, cmap=cmap, yticklabels = select_feature_labels(feature_choice, include_sparse_attention), 
                      xticklabels = xlabels, square = True, mask = feature_importances == 0)
     ax.set(ylabel = 'Feature', title=f'{variable_importance} feature importance')
